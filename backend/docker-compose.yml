@@ -1,0 +1,14 @@
+services:
+  postgres-db:
+    image: postgres:16.4-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=jobradar
+      - POSTGRES_PASSWORD=jobradar
+      - POSTGRES_DB=jobradar
+    ports:
+      - '5434:5432'   # 5432 is culinary-code's, 5433 job-alerts'
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # keeps the jobs table across `docker compose down`
+volumes:
+  pgdata:

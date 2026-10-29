@@ -1,0 +1,27 @@
+spring:
+  config.import:
+    - optional:file:companies.yml
+    - optional:file:./secrets.env[.properties]
+  # docker-compose.yml runs it: docker compose up -d
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/jobradar}
+    username: ${DB_USER:jobradar}
+    password: ${DB_PASSWORD:jobradar}
+  sql.init.mode: always   # runs schema.sql (CREATE TABLE IF NOT EXISTS) on every start
+  servlet.multipart.max-file-size: 5MB   # resume upload
+
+server:
+  port: 8081   # 8080 is job-alerts'
+  address: 127.0.0.1   # no auth: the API spends LLM time and holds your resume; keep it off the LAN
+  error.include-message: always   # the UI shows the validation message
+
+# Everything about the search (titles, locations, pay, resume) is set in the UI's Setup tab.
+jobradar:
+  llm-url: ${LLM_URL:http://localhost:11434}   # any OpenAI-compatible server; this is Ollama's default
+  llm-key: ${LLM_API_KEY:}
+  model: ${LLM_MODEL:qwen2.5:7b-instruct}
+  # Optional search boards; each is skipped while its key is empty.
+  adzuna-id: ${ADZUNA_APP_ID:}
+  adzuna-key: ${ADZUNA_APP_KEY:}
+  adzuna-country: ${ADZUNA_COUNTRY:us}
+  jsearch-key: ${JSEARCH_API_KEY:}   # RapidAPI key; covers LinkedIn, Indeed, Dice, Glassdoor via Google for Jobs

@@ -1,0 +1,22 @@
+# Build output
+backend/build/
+backend/.gradle/
+!backend/gradle/wrapper/gradle-wrapper.jar
+
+# Secrets: API keys live here
+*.env
+.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# UI
+ui/node_modules/
+ui/.next/
+ui/next-env.d.ts
