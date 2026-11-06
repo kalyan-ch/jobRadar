@@ -12,14 +12,15 @@ spring:
 
 server:
   port: 8081   # 8080 is job-alerts'
-  address: 127.0.0.1   # no auth: the API spends LLM time and holds your resume; keep it off the LAN
+  address: 127.0.0.1   # no auth: the API spends your Claude credit and holds your resume; keep it off the LAN
   error.include-message: always   # the UI shows the validation message
 
 # Everything about the search (titles, locations, pay, resume) is set in the UI's Setup tab.
 jobradar:
-  llm-url: ${LLM_URL:http://localhost:11434}   # any OpenAI-compatible server; this is Ollama's default
-  llm-key: ${LLM_API_KEY:}
-  model: ${LLM_MODEL:qwen2.5:7b-instruct}
+  anthropic-key: ${ANTHROPIC_API_KEY:}
+  anthropic-url: https://api.anthropic.com
+  model: ${CLAUDE_MODEL:claude-opus-5-5}
+  claude-timeout: ${CLAUDE_TIMEOUT:2m}   # per attempt; each job gets up to 4 attempts
   # Optional search boards; each is skipped while its key is empty.
   adzuna-id: ${ADZUNA_APP_ID:}
   adzuna-key: ${ADZUNA_APP_KEY:}

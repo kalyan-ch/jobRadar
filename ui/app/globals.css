@@ -124,3 +124,25 @@ textarea { resize: vertical; }
 :is(input, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @media (max-width: 760px) { .setup, .row { grid-template-columns: 1fr; } }
+
+.checklist { margin-bottom: 16px; gap: 10px; }
+.checklist-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.checklist ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.checklist li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; }
+.checklist li.current { background: var(--none-bg); }
+.checklist li.done .step-label { color: var(--muted); }
+.mark {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line);
+}
+.done .mark { color: var(--high); background: var(--high-bg); border-color: transparent; }
+.current .mark { color: #fff; background: var(--accent); border-color: var(--accent); }
+.step-body { flex: 1; min-width: 0; }
+.step-label { font-weight: 500; font-size: 0.9rem; }
+.step-body .muted { margin: 2px 0 0; }
+.checklist a.primary { text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
+.checklist button.primary { font-size: 0.85rem; white-space: nowrap; }
+.checklist button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 640px) { .checklist li { flex-wrap: wrap; } .step-body { flex-basis: calc(100% - 36px); } }

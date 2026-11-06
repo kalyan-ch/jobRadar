@@ -36,6 +36,10 @@ public class Runs {
                       Integer jobsScored, String badSlugs, String error,
                       OffsetDateTime startedAt, OffsetDateTime finishedAt) {}
 
+    /** What the dashboard's first-run checklist needs. */
+    public record Setup(boolean apiKey, boolean titles, boolean resume, boolean fetched, int unscored, boolean scored,
+                        boolean running) {}
+
     private static final RowMapper<Run> RUN = new DataClassRowMapper<>(Run.class);
 
     private final AtsClient ats;
@@ -69,6 +73,8 @@ public class Runs {
             throw new IllegalArgumentException("steps must be some of " + STEPS);
         var ordered = STEPS.stream().filter(steps::contains).toList();
         if (profiles.get().titles().isEmpty()) throw new IllegalArgumentException("set job titles in Setup first");
+        if (ordered.contains("score") && !scorer.configured())
+            throw new IllegalArgumentException("set ANTHROPIC_API_KEY in backend/secrets.env before scoring");
         if (ordered.contains("score") && profiles.resume().isBlank())
             throw new IllegalArgumentException("upload a resume in Setup before scoring");
         long id = jdbc.queryForObject(
@@ -78,6 +84,16 @@ public class Runs {
         changed();
         Thread.ofVirtual().start(() -> execute(id, ordered, skipWorkday));
         return jdbc.queryForObject("SELECT * FROM runs WHERE id = ?", RUN, id);
+    }
+
+    public Setup setup() {
+        return new Setup(scorer.configured(), !profiles.get().titles().isEmpty(), !profiles.resume().isBlank(),
+                exists("runs WHERE jobs_fetched IS NOT NULL"), jobs.unscoredCount(),
+                exists("jobs WHERE scored_at IS NOT NULL"), exists("runs WHERE state = 'running'"));
+    }
+
+    private boolean exists(String from) {
+        return jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM " + from + ")", Boolean.class);
     }
 
     public List<Run> recent(int limit) {
@@ -109,17 +125,23 @@ public class Runs {
     // Push per-board/per-batch increments into the row if the dashboard needs live progress.
     private void execute(long id, List<String> steps, boolean skipWorkday) {
         long t = System.currentTimeMillis();
+        boolean scoringDead = false;
         try {
             for (var s : steps) {
                 set(id, "step = ?", s);
                 switch (s) {
                     case "fetch" -> fetch(id, skipWorkday);
-                    case "score" -> set(id, "jobs_scored = ?", scorer.score(jobs.unscored()).size());
+                    case "score" -> {
+                        var r = scorer.score(jobs.unscored());
+                        set(id, "jobs_scored = ?, error = ?", r.scored(), r.problem());
+                        scoringDead = r.allFailed();
+                    }
                     case "check-slugs" -> checkSlugs(id, skipWorkday);
                 }
             }
-            set(id, "state = 'done', step = NULL, finished_at = now()");
-            log.info("run {} done in {}s", id, (System.currentTimeMillis() - t) / 1000);
+            var state = scoringDead ? "failed" : "done";
+            set(id, "state = ?, step = NULL, finished_at = now()", state);
+            log.info("run {} {} in {}s", id, state, (System.currentTimeMillis() - t) / 1000);
         } catch (Exception e) {
             log.warn("run {} failed", id, e);
             set(id, "state = 'failed', error = ?, finished_at = now()", AtsClient.brief(e));

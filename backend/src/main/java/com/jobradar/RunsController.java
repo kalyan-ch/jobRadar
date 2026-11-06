@@ -38,6 +38,9 @@ class RunsController {
     @GetMapping("/api/runs")
     List<Runs.Run> recent() { return runs.recent(20); }
 
+    @GetMapping("/api/setup")
+    Runs.Setup setup() { return runs.setup(); }
+
     @GetMapping(path = "/api/runs/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     SseEmitter events() { return runs.subscribe(); }
 }

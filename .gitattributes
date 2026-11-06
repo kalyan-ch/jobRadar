@@ -1,0 +1,3 @@
+# Scripts must keep their own line endings, or they break on the other OS.
+backend/gradlew text eol=lf
+*.bat text eol=crlf

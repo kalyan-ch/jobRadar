@@ -11,9 +11,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = "jobradar.anthropic-key=")
 @Import(TestDb.class)
 class RunsTest {
 
@@ -25,8 +27,10 @@ class RunsTest {
     void rejectsUnknownStepsAndASecondConcurrentRun() {
         assertThrows(IllegalArgumentException.class, () -> runs.start(List.of("fetch", "bogus"), false, "api"));
         assertThrows(IllegalArgumentException.class, () -> runs.start(List.of(), false, "api"));
+        assertFalse(runs.setup().apiKey());
         profiles.save(Fixtures.PROFILE);
-        assertThrows(IllegalArgumentException.class, () -> runs.start(List.of("score"), false, "api"), "no resume yet");
+        var noKey = assertThrows(IllegalArgumentException.class, () -> runs.start(List.of("score"), false, "api"));
+        assertTrue(noKey.getMessage().contains("ANTHROPIC_API_KEY"), noKey.getMessage());
 
         // A row already running (inserted directly, so no real fetch/LLM work starts) blocks the next start.
         jdbc.update("INSERT INTO runs (steps, skip_workday, triggered_by, state) VALUES ('score', false, 'api', 'running')");

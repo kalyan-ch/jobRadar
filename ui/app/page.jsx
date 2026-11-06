@@ -121,6 +121,49 @@ async function uploadResume(fd) {
   await back('setup', r, 'Resume saved')
 }
 
+function Checklist({ s }) {
+  const setup = '?tab=setup'
+  const steps = [
+    { done: s.apiKey, label: 'Add your Anthropic API key',
+      hint: <>Set <code>ANTHROPIC_API_KEY</code> in <code>backend/secrets.env</code>, then restart the API.</> },
+    { done: s.titles, label: 'Add job titles', href: setup, action: 'Go to Setup' },
+    { done: s.resume, label: 'Upload your resume', href: setup, action: 'Go to Setup' },
+    { done: s.fetched, label: 'Fetch jobs', hint: 'Free. Shows how many jobs match before you pay to score any.',
+      run: 'fetch', action: 'Fetch jobs' },
+    { done: s.scored, label: 'Score jobs', run: 'score', action: `Score ${s.unscored} ${s.unscored === 1 ? 'job' : 'jobs'}`,
+      hint: s.unscored
+        ? `${s.unscored} ${s.unscored === 1 ? 'job is' : 'jobs are'} ready. Each one is a paid API request, so narrow your preferences and fetch again if that's too many.`
+        : s.fetched ? 'No jobs matched. Widen your preferences, then fetch again.' : 'Each job is a paid API request.' },
+  ]
+  const current = steps.findIndex((step) => !step.done)
+  return (
+    <section className="panel checklist" aria-labelledby="checklist-title">
+      <div className="checklist-head">
+        <h2 id="checklist-title">Get started</h2>
+        <span className="muted">{steps.filter((step) => step.done).length} of {steps.length} done</span>
+      </div>
+      {s.running && <p className="sub">A run is going; this updates when it moves on.</p>}
+      <ol>
+        {steps.map((step, i) => (
+          <li key={step.label} className={step.done ? 'done' : i === current ? 'current' : undefined}>
+            <span className="mark" aria-hidden="true">{step.done ? '✓' : i + 1}</span>
+            <div className="step-body">
+              <span className="step-label">{step.done && <span className="sr-only">Done: </span>}{step.label}</span>
+              {!step.done && step.hint && <p className="muted">{step.hint}</p>}
+            </div>
+            {i === current && step.href && <a className="primary" href={step.href}>{step.action}</a>}
+            {i === current && step.run && (step.run === 'fetch' || s.unscored > 0) && (
+              <form action={startRun}>
+                <button className="primary" name="steps" value={step.run} disabled={s.running}>{step.action}</button>
+              </form>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 function Field({ id, label, hint, children }) {
   return (
     <div className="field">
@@ -172,7 +215,7 @@ function SetupView({ data }) {
           {data.resumeChars ? `Saved: ${data.resumeChars.toLocaleString('en-US')} characters of text.` : 'No resume yet. Scoring needs one.'}
         </p>
         {data.resumeStart && <pre className="preview">{data.resumeStart}…</pre>}
-        <Field id="file" label="Upload PDF or .txt" hint="Text is pulled out and kept on this machine. Scanned image PDFs have no text to read.">
+        <Field id="file" label="Upload PDF or .txt" hint="Text is pulled out and stored on this machine, and sent to Claude for scoring. Scanned image PDFs have no text to read.">
           <input id="file" name="file" type="file" accept=".pdf,.txt,application/pdf,text/plain" required aria-describedby="file-hint" />
         </Field>
         <button className="primary">Upload resume</button>
@@ -199,7 +242,7 @@ function RunsView({ runs }) {
       </form>
       {running && <p className="sub">A run is going; this page updates as it moves.</p>}
       {runs.length === 0
-        ? <div className="empty"><h2>No runs yet</h2><p>Fill in <a href="?tab=setup">Setup</a>, then start one above. A full run also happens daily at 7am.</p></div>
+        ? <div className="empty"><h2>No runs yet</h2><p>Follow the checklist above to get started. Once the API is running, a full run also happens daily at 7am Pacific.</p></div>
         : (
           <div className="table-wrap">
             <table className="runs">
@@ -240,7 +283,7 @@ function Tabs({ tab }) {
   )
 }
 
-function Shell({ tab, sub, stats, error, ok, children }) {
+function Shell({ tab, sub, stats, error, ok, setup, children }) {
   return (
     <main>
       <header>
@@ -250,6 +293,7 @@ function Shell({ tab, sub, stats, error, ok, children }) {
         </div>
         {stats}
       </header>
+      {!setup.scored && <Checklist s={setup} />}
       <Tabs tab={tab} />
       {error && <p className="error" role="alert">{error}</p>}
       {ok && <p className="notice" role="status">{ok}</p>}
@@ -262,11 +306,12 @@ export default async function Page({ searchParams }) {
   const { tab: t, error, ok, company } = await searchParams
   const tab = Object.hasOwn(TABS, t ?? '') ? t : 'latest'
   const jobTab = tab === 'latest' || tab === 'top'
-  let data, companies
+  let data, companies, setup
   try {
-    ;[data, companies] = await Promise.all([
+    ;[data, companies, setup] = await Promise.all([
       get(TABS[tab].path + (jobTab && company ? `?company=${encodeURIComponent(company)}` : '')),
       jobTab ? get('/api/companies') : null,
+      get('/api/setup'),
     ])
   } catch (e) {
     return (
@@ -279,7 +324,7 @@ export default async function Page({ searchParams }) {
     )
   }
 
-  const shell = { tab, error, ok }
+  const shell = { tab, error, ok, setup }
   if (tab === 'setup') return <Shell {...shell} sub={TABS.setup.sub()}><SetupView data={data} /></Shell>
   if (tab === 'runs') return <Shell {...shell} sub={TABS.runs.sub(data.length)}><RunsView runs={data} /></Shell>
 
@@ -297,7 +342,7 @@ export default async function Page({ searchParams }) {
     <Shell {...shell} sub={TABS[tab].sub(jobs.length) + (company ? ` at ${company}` : '')} stats={stats}>
       {companies.length > 0 && <CompanyFilter tab={tab} companies={companies} company={company} />}
       {jobs.length === 0
-        ? <div className="empty"><h2>No jobs yet</h2><p>Fill in <a href="?tab=setup">Setup</a>, then start a full run from <a href="?tab=runs">Runs</a>.</p></div>
+        ? <div className="empty"><h2>No jobs yet</h2><p>{setup.scored ? <>Start a run from <a href="?tab=runs">Runs</a>.</> : 'Follow the checklist above to get started.'}</p></div>
         : <section className="list">{jobs.map((j) => <JobCard key={j.id} j={j} />)}</section>}
     </Shell>
   )

@@ -28,7 +28,7 @@ class WiringTest {
     void contextLoadsAndCompaniesBind() {
         assertNotNull(runs);
         assertFalse(boards.companies().isEmpty(), "companies.yml should bind");
-        assertNotNull(props.llmUrl());
+        assertNotNull(props.model());
     }
 
     @Test

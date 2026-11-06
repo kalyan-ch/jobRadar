@@ -47,6 +47,10 @@ public class JobStore {
         return jdbc.query("SELECT * FROM jobs WHERE removed_at IS NULL AND scored_at IS NULL", (rs, i) -> job(rs));
     }
 
+    public int unscoredCount() {
+        return jdbc.queryForObject("SELECT count(*) FROM jobs WHERE removed_at IS NULL AND scored_at IS NULL", Integer.class);
+    }
+
     public void saveScores(List<Scored> scored) {
         jdbc.batchUpdate("UPDATE jobs SET score = ?, reason = ?, visa_sponsorship = ?, scored_at = now() WHERE id = ?",
                 scored.stream().map(s -> new Object[]{s.score(), clean(s.reason()), s.visaSponsorship(), s.job().id()}).toList());
